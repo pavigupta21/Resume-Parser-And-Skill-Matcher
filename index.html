@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
+
+    <title>SkillFit — Smart Resume Parsing & Matching</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <a class="brand" href="#">
+        <div class="brand-icon">🎯</div>
+        <span class="brand-name">Skill<em>Fit</em></span>
+    </a>
+    <!-- <button class="login-btn" onclick="openAuth()">Login / Signup</button> -->
+<div id="authNavArea">
+    <button class="login-btn" id="loginBtn" onclick="openAuth()">
+        Login / Signup
+    </button>
+
+    <div class="account-menu hidden" id="accountMenu">
+        <div class="account-trigger" onclick="toggleAccountDropdown()">
+            <div class="account-avatar" id="accountAvatar">U</div>
+            <span id="accountUsername">User</span>
+        </div>
+        <div class="account-dropdown hidden" id="accountDropdown">
+            <div class="account-email" id="accountEmail"></div>
+            <button onclick="logoutUser()">Logout</button>
+        </div>
+    </div>
+</div>
+
+</header>
+
+<section class="hero">
+    <div class="hero-pill">
+        <span class="hero-pill-dot"></span>
+        AI-Powered Skill Matching
+    </div>
+    <h2>Parse resumes.<br><em>Match the right skills.</em></h2>
+    <p>Upload candidate resumes and a job description — SkillFit scores and ranks talent by skill alignment instantly.</p>
+</section>
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-overlay-card">
+        <h3>Please login or signup</h3>
+        <p>You must be authenticated before uploading or analyzing resumes.</p>
+        <button class="primary-btn" onclick="openAuth()">
+            Login / Signup
+        </button>
+    </div>
+</div>
+
+<div id="appContent" class="container app-disabled">
+
+    <!-- Upload Section -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon blue">📂</div>
+            <div>
+                <h2>Upload Resumes</h2>
+                <div class="card-subtitle">PDF format · multiple files supported</div>
+            </div>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <input type="file" id="resumeFiles" multiple accept=".pdf">
+            <div class="upload-icon">☁️</div>
+            <p><strong>Drag & drop</strong> PDF resumes here<br>or use the button below</p>
+            <button class="upload-trigger-btn">⬆&nbsp; Upload Files</button>
+        </div>
+
+        <!-- File list header -->
+        <div class="file-list-header" id="fileListHeader" style="display:none;">
+            <span id="fileCount">0 files</span>
+            <button class="clear-all-btn" onclick="clearAllFiles()">✕ Clear all</button>
+        </div>
+        <ul id="fileList"></ul>
+
+        <!-- Extract button — appears below file list after upload -->
+        <div id="analyzeRow" class="card-analyze-row" style="display:none;">
+            <button onclick="extractResumes()" class="extract-btn" id="extractBtn">
+                ⬆&nbsp; Extract & Save Resumes
+            </button>
+        </div>
+    </div>
+
+    <!-- Job Description Section -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon rose">📋</div>
+            <div>
+                <h2>Job Description</h2>
+                <div class="card-subtitle">Paste the full JD for best results</div>
+            </div>
+        </div>
+
+        <textarea id="jobDescription" maxlength="1000"
+            placeholder="Paste the job description here — required skills, responsibilities, qualifications…"></textarea>
+
+        <div class="jd-footer">
+            <span class="char-count" id="charCount">0 / 1000 characters</span>
+        </div>
+
+        <button class="save-jd-btn" id="saveJdBtn" onclick="saveJobDescription()">
+            💾&nbsp; Save Job Description
+        </button>
+    </div>
+
+    <!-- Centered Analyze CTA — always visible below both cards -->
+    <div class="analyze-row">
+        <button onclick="analyzeResumes()" class="primary-btn" id="analyzeBtn">
+            ✦&nbsp; Analyze &amp; Match Resumes
+        </button>
+    </div>
+
+</div>
+
+
+
+<div id="authModal" class="auth-modal hidden">
+  <div class="auth-card">
+
+    <div class="auth-header">
+      <h3 id="authTitle">Login</h3>
+      <button onclick="closeAuth()">✕</button>
+    </div>
+
+    <input type="text" id="authUsername" placeholder="Username">
+
+    <input type="email" id="authEmail" placeholder="Email" class="signup-only">
+
+    <input type="password" id="authPassword" placeholder="Password">
+
+    <input type="password" id="authConfirmPassword"
+        placeholder="Confirm Password"
+        class="signup-only">
+
+    <button class="primary-btn auth-submit" onclick="handleAuth()" id="authBtn">
+      Login
+    </button>
+
+    <p class="auth-switch">
+        <span id="authSwitchText">Don't have an account?</span>
+        <a href="#" id="authSwitchLink" >
+    Create account
+    </a>
+    </p>
+
+
+  </div>
+</div>
+<div id="otpModal" class="auth-modal hidden">
+  <div class="auth-card">
+
+    <div class="auth-header">
+      <h3>Verify Email</h3>
+    </div>
+
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">
+        Enter the verification code sent to your email.
+    </p>
+
+    <input type="text" id="otpCode" placeholder="Enter OTP">
+
+    <button class="primary-btn auth-submit" onclick="confirmOTP()">
+        Verify Account
+    </button>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<!-- <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1480.0.min.js"></script> -->
+<script src="https://unpkg.com/aws-amplify@4.3.32/dist/aws-amplify.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
