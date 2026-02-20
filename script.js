@@ -5,10 +5,21 @@ let isSignupMode    = false;
 let pendingUsername = "";
 let Auth;
 let Storage;
+const JOB_API_URL = "https://0w7yht93fh.execute-api.ap-south-1.amazonaws.com/job";
 
 
 let selectedFiles = [];
+let resumesExtracted = false;
+let jobSaved = false;
+function updateAnalyzeButtonState() {
+    const analyzeBtn = document.getElementById("analyzeBtn");
 
+    if (resumesExtracted && jobSaved) {
+        analyzeBtn.disabled = false;
+    } else {
+        analyzeBtn.disabled = true;
+    }
+}
 async function uploadAllFiles() {
     if (!selectedFiles || selectedFiles.length === 0) {
         showToast("Please select at least one file.", "warning");
@@ -156,30 +167,33 @@ checkUserSession();
                 }
             }
             renderFileList();
+            
         });
     }
 
     // ── Character counter ──
-    const jdTextarea = document.getElementById("jobDescription");
-    const charCount  = document.getElementById("charCount");
-    const JD_LIMIT   = 1000;
+    // ── Character counter (NO LIMIT) ──
+const jdTextarea = document.getElementById("jobDescription");
+const charCount  = document.getElementById("charCount");
 
-    if (jdTextarea) {
-        const savedJD = localStorage.getItem("savedJD");
-        if (savedJD) {
-            jdTextarea.value = savedJD.slice(0, JD_LIMIT);
-            updateCharCount(jdTextarea.value.length);
-        }
-        jdTextarea.addEventListener("input", () => updateCharCount(jdTextarea.value.length));
-    }
+if (jdTextarea) {
 
-    function updateCharCount(len) {
-        if (!charCount) return;
-        charCount.textContent = `${len.toLocaleString()} / ${JD_LIMIT.toLocaleString()} characters`;
-        charCount.classList.remove("warn", "over");
-        if (JD_LIMIT - len <= 0)        charCount.classList.add("over");
-        else if (JD_LIMIT - len <= 100) charCount.classList.add("warn");
-    }
+    const savedJD = localStorage.getItem("savedJD");
+    if (savedJD && savedJD.trim().length > 1) {
+    jdTextarea.value = savedJD;
+    updateCharCount(savedJD.length);
+}
+
+    jdTextarea.addEventListener("input", () => {
+        updateCharCount(jdTextarea.value.length);
+    });
+}
+
+function updateCharCount(len) {
+    if (!charCount) return;
+
+    charCount.textContent = `${len.toLocaleString()} characters`;
+}
 });
 
 
@@ -382,6 +396,7 @@ function renderFileList() {
         `;
         fileList.appendChild(li);
     });
+    
 }
 
 function removeFile(idx) {
@@ -405,30 +420,56 @@ function formatBytes(b) {
 // ══════════════════════════════════════
 //  JOB DESCRIPTION
 // ══════════════════════════════════════
-function saveJobDescription() {
-    const btn      = document.getElementById("saveJdBtn");
-    const textarea = document.getElementById("jobDescription");
-    const val      = textarea ? textarea.value.trim() : "";
 
-    if (!val) {
-        btn.textContent       = "⚠ Nothing to save";
-        btn.style.color       = "var(--danger)";
-        btn.style.borderColor = "rgba(214,48,49,0.3)";
-        setTimeout(() => {
-            btn.textContent       = "💾\u00a0 Save Job Description";
-            btn.style.color       = "";
-            btn.style.borderColor = "";
-        }, 2200);
+async function saveJobDescription() {
+
+    const btn = document.getElementById("saveJdBtn");
+    const textarea = document.getElementById("jobDescription");
+    const description = textarea ? textarea.value.trim() : "";
+
+    if (!description) {
+        showToast("Please enter a job description.", "warning");
         return;
     }
 
-    localStorage.setItem("savedJD", val);
-    btn.classList.add("saved");
-    btn.textContent = "✔\u00a0 Saved!";
-    setTimeout(() => {
-        btn.classList.remove("saved");
-        btn.textContent = "💾\u00a0 Save Job Description";
-    }, 2400);
+    btn.classList.add("loading");
+    btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Saving...`;
+
+    try {
+
+        const response = await fetch(JOB_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                title: "Job Posting",   // optional
+                description: description
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Failed to save job");
+        }
+
+        // Save job_id locally for matching later
+        localStorage.setItem("savedJobId", data.job_id);
+        localStorage.setItem("savedJD", description);
+        jobSaved = true;
+        updateAnalyzeButtonState();
+
+        btn.classList.remove("loading");
+        btn.innerHTML = "✔&nbsp; Saved!";
+        showToast("Job description saved successfully!", "success");
+
+    } catch (err) {
+        console.error(err);
+        btn.classList.remove("loading");
+        btn.innerHTML = "💾&nbsp; Save Job Description";
+        showToast("Error saving job description.", "error");
+    }
 }
 
 // ══════════════════════════════════════
@@ -469,6 +510,9 @@ async function extractResumes() {
             btn.style.background  = "var(--success-bg)";
             btn.style.color       = "var(--success)";
             btn.style.borderColor = "rgba(13,158,110,0.3)";
+
+            resumesExtracted = true;
+            updateAnalyzeButtonState();
 
             showToast("All resumes processed successfully!", "success");
 

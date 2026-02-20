@@ -1077,3 +1077,7 @@ textarea:focus {
     border-bottom: 1px solid var(--border);
     word-break: break-all;
 }
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

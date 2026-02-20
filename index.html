@@ -98,11 +98,11 @@
             </div>
         </div>
 
-        <textarea id="jobDescription" maxlength="1000"
+        <textarea id="jobDescription"
             placeholder="Paste the job description here — required skills, responsibilities, qualifications…"></textarea>
 
         <div class="jd-footer">
-            <span class="char-count" id="charCount">0 / 1000 characters</span>
+            <span class="char-count" id="charCount">0 characters</span>
         </div>
 
         <button class="save-jd-btn" id="saveJdBtn" onclick="saveJobDescription()">
@@ -112,7 +112,7 @@
 
     <!-- Centered Analyze CTA — always visible below both cards -->
     <div class="analyze-row">
-        <button onclick="analyzeResumes()" class="primary-btn" id="analyzeBtn">
+        <button onclick="analyzeResumes()" class="primary-btn" id="analyzeBtn" disabled>
             ✦&nbsp; Analyze &amp; Match Resumes
         </button>
     </div>
