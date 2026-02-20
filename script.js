@@ -8,40 +8,39 @@ let Storage;
 
 
 let selectedFiles = [];
-async function testS3Upload() {
+
+async function uploadAllFiles() {
+    if (!selectedFiles || selectedFiles.length === 0) {
+        showToast("Please select at least one file.", "warning");
+        return false;
+    }
+
     try {
-        if (!selectedFiles || selectedFiles.length === 0) {
-            showToast("Please select a file first.", "warning");
-            return;
-        }
-
-        const file = selectedFiles[0];
-
-        if (!(file instanceof File)) {
-            console.error("Invalid file object:", file);
-            showToast("Invalid file selected.", "error");
-            return;
-        }
-
         const user = await Auth.currentAuthenticatedUser();
 
-        await Storage.put(
-            `uploads/${user.username}/${Date.now()}_${file.name}`,
-            file,
-            {
-                contentType: file.type || "application/pdf",
-                level: "private"
-            }
-        );
+        const uploadPromises = selectedFiles.map(file => {
+            if (!(file instanceof File)) return Promise.resolve();
 
-        showToast("Upload successful!", "success");
+            return Storage.put(
+                `uploads/${user.username}/${Date.now()}_${file.name}`,
+                file,
+                {
+                    contentType: file.type || "application/pdf",
+                    level: "private"
+                }
+            );
+        });
+
+        await Promise.all(uploadPromises);
+
+        return true;
 
     } catch (err) {
         console.error("Upload error:", err);
         showToast(err.message || "Upload failed", "error");
+        return false;
     }
 }
-
 
 
 
@@ -98,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.aws_amplify.Amplify.configure({
     Auth: {
         region: "ap-south-1",
-        userPoolId: "ap-south-1_XtzwgaZoT",
+        userPoolId: "ap-south-1_XtZwgaZoT",
         userPoolWebClientId: "2d0v585694p0fsfqvs78j7pl5q",
         authenticationFlowType: "USER_PASSWORD_AUTH",
         identityPoolId: "ap-south-1:8a6d8dfa-f792-46d8-8ac9-4b5cb4b32667",
@@ -435,21 +434,49 @@ function saveJobDescription() {
 // ══════════════════════════════════════
 //  EXTRACT & ANALYZE
 // ══════════════════════════════════════
-// function extractResumes() {
-//     const btn = document.getElementById("extractBtn");
-//     btn.classList.add("loading");
-//     btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Extracting…`;
 
-//     setTimeout(() => {
-//         btn.classList.remove("loading");
-//         btn.innerHTML            = `✔&nbsp; Extracted &amp; Saved!`;
-//         btn.style.background     = "var(--success-bg)";
-//         btn.style.color          = "var(--success)";
-//         btn.style.borderColor    = "rgba(13,158,110,0.3)";
-//     }, 1400);
-// }
-function extractResumes() {
-    testS3Upload();
+async function extractResumes() {
+    const btn = document.getElementById("extractBtn");
+    if (!btn) return;
+
+    btn.classList.add("loading");
+
+    // Step 1: Upload all files
+    btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Uploading...`;
+    const uploadSuccess = await uploadAllFiles();
+
+    if (!uploadSuccess) {
+        btn.classList.remove("loading");
+        btn.innerHTML = `⬆&nbsp; Extract & Save Resumes`;
+        return;
+    }
+
+    // Step 2: Countdown extraction time
+    let remaining = 120; // 120 seconds
+
+    btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Extracting & Saving... (${remaining}s)`;
+
+    const interval = setInterval(() => {
+        remaining--;
+
+        btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Extracting & Saving... (${remaining}s)`;
+
+        if (remaining <= 0) {
+            clearInterval(interval);
+
+            btn.classList.remove("loading");
+            btn.innerHTML = `✔&nbsp; Extracted & Saved!`;
+            btn.style.background  = "var(--success-bg)";
+            btn.style.color       = "var(--success)";
+            btn.style.borderColor = "rgba(13,158,110,0.3)";
+
+            showToast("All resumes processed successfully!", "success");
+
+            selectedFiles = [];
+            renderFileList();
+        }
+
+    }, 1000);
 }
 function analyzeResumes() {
     const btn = document.getElementById("analyzeBtn");
