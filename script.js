@@ -11,6 +11,52 @@ const JOB_API_URL = "https://0w7yht93fh.execute-api.ap-south-1.amazonaws.com/job
 let selectedFiles = [];
 let resumesExtracted = false;
 let jobSaved = false;
+async function waitForProcessingCompletion() {
+
+    const jobId = localStorage.getItem("savedJobId");
+    const expected = parseInt(localStorage.getItem("expectedResumeCount"), 10);
+
+    if (!jobId || !expected) return;
+
+    const analyzeBtn = document.getElementById("analyzeBtn");
+
+    const interval = setInterval(async () => {
+
+        try {
+            const response = await fetch(
+                `https://0w7yht93fh.execute-api.ap-south-1.amazonaws.com/job-status?job_id=${jobId}`
+            );
+
+            const data = await response.json();
+            const processed = data.processed_count;
+
+            console.log("Processed:", processed, "Expected:", expected);
+
+            if (processed >= expected) {
+                const extractBtn = document.getElementById("extractBtn");
+                if (extractBtn) {
+                    extractBtn.classList.remove("loading");
+                    extractBtn.innerHTML = `✔&nbsp; Extracted & Saved!`;
+                }
+
+                clearInterval(interval);
+
+                resumesExtracted = true;
+                updateAnalyzeButtonState();
+
+                showToast("All resumes processed successfully!", "success");
+
+                if (analyzeBtn) {
+                    analyzeBtn.disabled = false;
+                }
+            }
+
+        } catch (err) {
+            console.error("Status check failed:", err);
+        }
+
+    }, 5000); // check every 5 seconds
+}
 function updateAnalyzeButtonState() {
     const analyzeBtn = document.getElementById("analyzeBtn");
 
@@ -31,9 +77,9 @@ async function uploadAllFiles() {
 
         const uploadPromises = selectedFiles.map(file => {
             if (!(file instanceof File)) return Promise.resolve();
-
+            const jobId = localStorage.getItem("savedJobId");
             return Storage.put(
-                `uploads/${user.username}/${Date.now()}_${file.name}`,
+                 `uploads/${user.username}/${jobId}/${Date.now()}_${file.name}`,
                 file,
                 {
                     contentType: file.type || "application/pdf",
@@ -178,15 +224,15 @@ const charCount  = document.getElementById("charCount");
 
 if (jdTextarea) {
 
-    const savedJD = localStorage.getItem("savedJD");
-    if (savedJD && savedJD.trim().length > 1) {
-    jdTextarea.value = savedJD;
-    updateCharCount(savedJD.length);
-}
-
     jdTextarea.addEventListener("input", () => {
         updateCharCount(jdTextarea.value.length);
     });
+}
+    // jdTextarea.value = "";
+    // updateCharCount(0);
+    if (jdTextarea) {
+    jdTextarea.value = "";
+    updateCharCount(0);
 }
 
 function updateCharCount(len) {
@@ -347,6 +393,13 @@ function toggleAccountDropdown() {
 async function logoutUser() {
     try {
         await Auth.signOut();
+
+        // 🔥 Clear job-related data
+        localStorage.removeItem("savedJD");
+        localStorage.removeItem("savedJobId");
+        localStorage.removeItem("expectedResumeCount");
+        localStorage.removeItem("results");
+
         window.location.href = "index.html";
     } catch (err) {
         showToast("Logout failed.", "error");
@@ -460,6 +513,9 @@ async function saveJobDescription() {
         jobSaved = true;
         updateAnalyzeButtonState();
 
+        const warning = document.getElementById("jdWarning");
+        if (warning) warning.style.display = "none";
+
         btn.classList.remove("loading");
         btn.innerHTML = "✔&nbsp; Saved!";
         showToast("Job description saved successfully!", "success");
@@ -477,6 +533,12 @@ async function saveJobDescription() {
 // ══════════════════════════════════════
 
 async function extractResumes() {
+    // 🚨 Guard: JD must be saved first
+    if (!jobSaved) {
+        showToast("Please save the Job Description before extracting resumes.", "warning");
+        return;
+    }
+    localStorage.setItem("expectedResumeCount", selectedFiles.length);
     const btn = document.getElementById("extractBtn");
     if (!btn) return;
 
@@ -493,59 +555,84 @@ async function extractResumes() {
     }
 
     // Step 2: Countdown extraction time
-    let remaining = 120; // 120 seconds
+    // let remaining = 120; // 120 seconds
 
-    btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Extracting & Saving... (${remaining}s)`;
+    btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Extracting & Saving...`;
 
-    const interval = setInterval(() => {
-        remaining--;
-
-        btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Extracting & Saving... (${remaining}s)`;
-
-        if (remaining <= 0) {
-            clearInterval(interval);
-
-            btn.classList.remove("loading");
-            btn.innerHTML = `✔&nbsp; Extracted & Saved!`;
-            btn.style.background  = "var(--success-bg)";
-            btn.style.color       = "var(--success)";
-            btn.style.borderColor = "rgba(13,158,110,0.3)";
-
-            resumesExtracted = true;
-            updateAnalyzeButtonState();
-
-            showToast("All resumes processed successfully!", "success");
-
-            selectedFiles = [];
-            renderFileList();
-        }
-
-    }, 1000);
+    if (uploadSuccess) {
+    waitForProcessingCompletion();
 }
-function analyzeResumes() {
+}
+
+async function analyzeResumes() {
+
     const btn = document.getElementById("analyzeBtn");
     btn.classList.add("loading");
     btn.innerHTML = `<span class="spinner">⟳</span>&nbsp; Analyzing…`;
 
-    setTimeout(() => {
-        const results = [
-            { name: "Daenerys Targaryen", score: 91, skills: ["Python","ML","TensorFlow","SQL","Data Analysis"] },
-            { name: "John Snow",          score: 86, skills: ["Python","React","Node.js","REST APIs","Git"] },
-            { name: "Arya Stark",         score: 72, skills: ["Java","Spring Boot","Microservices","Docker"] },
-            { name: "Tyrion Lannister",   score: 65, skills: ["JavaScript","Vue.js","CSS","HTML","Figma"] },
-            { name: "Sansa Stark",        score: 48, skills: ["Excel","PowerPoint","Project Management"] },
-            { name: "Jon Targaryen",      score: 38, skills: ["C++","Embedded Systems","RTOS"] }
-        ];
-        localStorage.setItem("results", JSON.stringify(results));
-        window.location.href = "results.html";
-    }, 950);
-}
+    try {
 
+        const jobId = localStorage.getItem("savedJobId");
+
+        if (!jobId) {
+            showToast("No job selected.", "error");
+            return;
+        }
+
+        const response = await fetch("https://0w7yht93fh.execute-api.ap-south-1.amazonaws.com/analyze", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                job_id: jobId
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Analyze failed");
+        }
+
+        // Transform backend response to UI format
+        const formatted = data.results.map(r => ({
+            name: r.candidate_name || r.resume_id,  // ✅ Use name first
+            resumeId: r.resume_id, 
+            score: r.score,
+            skills: r.matched_skills,
+             s3key: r.s3_key
+        }));
+
+        localStorage.setItem("results", JSON.stringify(formatted));
+
+        window.location.href = "results.html";
+
+    } catch (err) {
+        console.error(err);
+        showToast("Analysis failed.", "error");
+    } finally {
+        btn.classList.remove("loading");
+        btn.innerHTML = `✦&nbsp; Analyze & Match Resumes`;
+    }
+}
 function goBack() { window.location.href = "index.html"; }
 
 // ══════════════════════════════════════
 //  RESULTS PAGE
 // ══════════════════════════════════════
+async function downloadResume(e, key) {
+    e.stopPropagation();
+
+    try {
+        const url = await Storage.get(key, { level: "private" });
+        window.open(url, "_blank");
+    } catch (err) {
+        console.error(err);
+        showToast("Failed to download resume", "error");
+    }
+}
+
 let allResults = [];
 
 if (window.location.pathname.includes("results.html")) {
@@ -605,7 +692,12 @@ function renderCards(list) {
                 <span class="score-badge ${scoreClass}">${r.score}%</span>
                 <span class="score-label ${scoreClass}">${scoreWord}</span>
             </div>
-            <button class="download-btn" onclick="downloadReport(event,'${r.name}',${r.score},'${(r.skills||[]).join(",")}')">
+            <button class="download-btn"
+                onclick="downloadResume(event,'${r.s3key}')">
+                📄 Resume
+            </button>
+            <button class="download-btn"
+    onclick="downloadReport(event,'${r.resumeId}')">
                 <svg viewBox="0 0 24 24"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/></svg>
                 Report
             </button>
@@ -622,65 +714,35 @@ function renderCards(list) {
     });
 }
 
-function downloadReport(e, name, score, skillsStr) {
+async function downloadReport(e, resumeId) {
     e.stopPropagation();
-    const skills    = skillsStr ? skillsStr.split(",") : [];
-    const scoreWord = score >= 75 ? "Strong Match" : score >= 50 ? "Moderate Match" : "Low Match";
-    const jd        = localStorage.getItem("savedJD") || "No job description saved.";
-    const now       = new Date().toLocaleString();
-    const scoreColor = score >= 75 ? "#0d9e6e" : score >= 50 ? "#c47b0a" : "#d63031";
-    const scoreBg    = score >= 75 ? "#e6f7f2"  : score >= 50 ? "#fef6e4" : "#fdecea";
 
-    const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<title>SkillFit Report — ${name}</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Plus Jakarta Sans',sans-serif;background:#f7f8fc;color:#16172b;padding:40px}
-  .card{background:#fff;border-radius:16px;padding:36px;max-width:680px;margin:0 auto;box-shadow:0 4px 20px rgba(67,97,238,.1)}
-  .logo{font-size:1rem;font-weight:800;color:#4361ee;margin-bottom:28px}
-  h1{font-size:1.7rem;font-weight:800;margin-bottom:4px}
-  .sub{color:#8a8da8;font-size:.85rem;margin-bottom:28px}
-  .score-box{display:flex;align-items:center;gap:18px;background:#eef1fd;border-radius:12px;padding:20px 24px;margin-bottom:24px}
-  .score-num{font-size:3rem;font-weight:800;color:${scoreColor};line-height:1}
-  .score-detail h3{font-size:.95rem;font-weight:700;margin-bottom:4px}
-  .score-detail p{font-size:.82rem;color:#8a8da8}
-  .badge{display:inline-block;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase;background:${scoreBg};color:${scoreColor};margin-top:6px}
-  section{margin-bottom:22px}
-  section h2{font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8a8da8;margin-bottom:10px}
-  .skill-list{display:flex;flex-wrap:wrap;gap:8px}
-  .skill{background:#eef1fd;color:#4361ee;font-size:.8rem;font-weight:600;padding:4px 12px;border-radius:6px}
-  .jd-box{background:#f7f8fc;border-radius:10px;padding:14px 16px;font-size:.83rem;color:#3d3f5c;line-height:1.7;max-height:200px;overflow:auto}
-  .footer{margin-top:28px;padding-top:18px;border-top:1px solid #e0e3f0;font-size:.75rem;color:#8a8da8;display:flex;justify-content:space-between}
-</style></head>
-<body><div class="card">
-  <div class="logo">🎯 SkillFit</div>
-  <h1>${name}</h1><p class="sub">Candidate Skill Match Report</p>
-  <div class="score-box">
-    <div class="score-num">${score}%</div>
-    <div class="score-detail">
-      <h3>Skill Compatibility Score</h3>
-      <p>Compared against the provided job description</p>
-      <span class="badge">${scoreWord}</span>
-    </div>
-  </div>
-  ${skills.length ? `<section><h2>Detected Skills</h2><div class="skill-list">${skills.map(s=>`<span class="skill">${s.trim()}</span>`).join("")}</div></section>` : ""}
-  <section><h2>Job Description</h2><div class="jd-box">${jd}</div></section>
-  <div class="footer"><span>Generated by SkillFit</span><span>${now}</span></div>
-</div></body></html>`;
+    try {
+        const jobId = localStorage.getItem("savedJobId");
 
-    const blob = new Blob([html], { type: "text/html" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url;
-    a.download = `SkillFit_Report_${name.replace(/\s+/g, "_")}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        const response = await fetch("https://0w7yht93fh.execute-api.ap-south-1.amazonaws.com/generate-report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                resume_id: resumeId,
+                job_id: jobId
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error(data);
+            throw new Error("Report generation failed");
+        }
+
+        window.open(data.download_url, "_blank");
+
+    } catch (err) {
+        console.error(err);
+        showToast("Failed to generate report", "error");
+    }
 }
-
 function filterResults() {
     const query = (document.getElementById("searchInput")?.value || "").toLowerCase().trim();
     const order = document.getElementById("sortSelect")?.value || "highest";

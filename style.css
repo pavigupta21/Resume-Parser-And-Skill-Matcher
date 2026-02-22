@@ -1081,3 +1081,15 @@ button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
+.jd-warning-note {
+    max-width: 990px;
+    margin: 20px auto 0 auto;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background: #fdecea;
+    color: #d63031;
+    border: 1px solid #f5c6cb;
+    margin-bottom: 20px;
+}
