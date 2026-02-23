@@ -11,13 +11,14 @@ The application is hosted using Amazon S3 static website hosting and can be acce
 
 👉 **http://skillfit-host-bucket.s3-website.ap-south-1.amazonaws.com/**
 
-*(Replace with your actual deployment URL if different.)*
-
 ---
 
-## 📸 Application Screenshot
+## 📸 Application Screenshots
 
-<img width="2880" height="1714" alt="SkillFit Screenshot" src="ADD_YOUR_SCREENSHOT_LINK_HERE" />
+<img width="2880" height="1714" alt="Screenshot (1545)" src="https://github.com/user-attachments/assets/788c7578-0fb2-44c4-bad1-c4e40928502b" />
+<img width="2880" height="1714" alt="Screenshot (1546)" src="https://github.com/user-attachments/assets/64326feb-01ac-4a08-a06c-76b21c877874" />
+
+
 
 ---
 
